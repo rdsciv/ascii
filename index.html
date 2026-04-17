@@ -55,6 +55,12 @@
     color: #6fd36f; font-size: 24px; letter-spacing: 0.1em;
   }
   #fullDrop.show { display: flex; }
+  .anim-track { border: 1px solid #222; border-radius: 4px; padding: 6px 8px; margin-top: 6px; }
+  .anim-track .row { margin-top: 4px; gap: 6px; }
+  .anim-track .row:first-child { margin-top: 0; }
+  .anim-track .track-remove { width: 28px; flex: 0 0 auto; padding: 4px; margin: 0; line-height: 1; }
+  .anim-track .track-label { color: #888; font-size: 11px; }
+  .anim-track select, .anim-track input[type="number"] { padding: 4px 6px; font-size: 12px; }
   kbd { background: #111; border: 1px solid #333; border-radius: 3px; padding: 1px 4px; font-size: 10px; color: #ddd; }
   @media (max-width: 720px) {
     body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
@@ -262,28 +268,13 @@
         <option value="video">Video timeline</option>
       </select>
     </div>
-    <div class="row">Parameter
-      <select id="animParam" style="flex:1">
-        <option value="cell" selected>Cell size</option>
-        <option value="contrast">Contrast</option>
-        <option value="gamma">Gamma</option>
-        <option value="saturation">Saturation</option>
-        <option value="hue">Hue shift</option>
-        <option value="bloomAmt">Bloom amount</option>
-        <option value="edgeThresh">Edge threshold</option>
-        <option value="fontWeight">Font weight</option>
-      </select>
-    </div>
-    <div class="row">From
-      <input type="number" id="animFrom" min="0" max="2000" step="0.5" value="1" style="width:70px">
-      To
-      <input type="number" id="animTo" min="0" max="2000" step="0.5" value="60" style="width:70px">
-    </div>
     <div class="row">Frames
-      <input type="number" id="animFrames" min="2" max="300" step="1" value="60" style="width:70px">
+      <input type="number" id="animFrames" min="2" max="600" step="1" value="60" style="width:70px">
       FPS
       <input type="number" id="animFps" min="1" max="60" step="1" value="24" style="width:60px">
     </div>
+    <div id="animTracks"></div>
+    <button type="button" id="animAddTrack" style="margin-top:4px">+ Add track</button>
     <div class="row">Direction
       <select id="animDir" style="flex:1">
         <option value="forward" selected>From → To</option>
@@ -1127,11 +1118,110 @@ const EASINGS = {
   expo:      (t) => t === 0 ? 0 : Math.pow(2, 10 * t - 10),
 };
 
+const ANIM_PARAM_OPTIONS = [
+  { id: 'cell',       label: 'Cell size' },
+  { id: 'contrast',   label: 'Contrast' },
+  { id: 'gamma',      label: 'Gamma' },
+  { id: 'saturation', label: 'Saturation' },
+  { id: 'hue',        label: 'Hue shift' },
+  { id: 'aspect',     label: 'Char aspect' },
+  { id: 'bloomAmt',   label: 'Bloom amount' },
+  { id: 'edgeThresh', label: 'Edge threshold' },
+  { id: 'fontWeight', label: 'Font weight' },
+];
+
+const ANIM_PARAM_DEFAULTS = {
+  cell:       { from: 1,   to: 80 },
+  contrast:   { from: 0.5, to: 2 },
+  gamma:      { from: 0.5, to: 1 },
+  saturation: { from: 1,   to: 2.5 },
+  hue:        { from: 0,   to: 360 },
+  aspect:     { from: 0.5, to: 2 },
+  bloomAmt:   { from: 0,   to: 1.5 },
+  edgeThresh: { from: 0,   to: 200 },
+  fontWeight: { from: 100, to: 900 },
+};
+
+let animTracks = [];
+
+function defaultTrackFor(paramId) {
+  const d = ANIM_PARAM_DEFAULTS[paramId] || { from: 0, to: 1 };
+  const totalFrames = parseInt($('animFrames')?.value || 60);
+  return { enabled: true, paramId, from: d.from, to: d.to, start: 0, end: totalFrames - 1 };
+}
+
+function renderTracks() {
+  const root = $('animTracks');
+  if (!root) return;
+  root.innerHTML = '';
+  animTracks.forEach((track, idx) => {
+    const card = document.createElement('div');
+    card.className = 'anim-track';
+    const options = ANIM_PARAM_OPTIONS
+      .map(o => `<option value="${o.id}"${o.id === track.paramId ? ' selected' : ''}>${o.label}</option>`)
+      .join('');
+    card.innerHTML =
+      '<div class="row">' +
+        `<label style="flex:0 0 auto"><input type="checkbox" data-field="enabled"${track.enabled ? ' checked' : ''}></label>` +
+        `<select data-field="paramId" style="flex:1">${options}</select>` +
+        `<button type="button" class="track-remove">×</button>` +
+      '</div>' +
+      '<div class="row"><span class="track-label">From</span>' +
+        `<input type="number" data-field="from" step="any" value="${track.from}" style="flex:1">` +
+        '<span class="track-label">To</span>' +
+        `<input type="number" data-field="to" step="any" value="${track.to}" style="flex:1">` +
+      '</div>' +
+      '<div class="row"><span class="track-label">Frame</span>' +
+        `<input type="number" data-field="start" step="1" min="0" value="${track.start}" style="flex:1">` +
+        '<span class="track-label">to</span>' +
+        `<input type="number" data-field="end" step="1" min="0" value="${track.end}" style="flex:1">` +
+      '</div>';
+    card.querySelectorAll('[data-field]').forEach(el => {
+      const evt = el.type === 'checkbox' ? 'change' : 'input';
+      el.addEventListener(evt, (e) => {
+        const field = e.target.dataset.field;
+        if (e.target.type === 'checkbox') animTracks[idx][field] = e.target.checked;
+        else if (e.target.type === 'number') animTracks[idx][field] = parseFloat(e.target.value);
+        else animTracks[idx][field] = e.target.value;
+      });
+    });
+    card.querySelector('.track-remove').addEventListener('click', () => {
+      animTracks.splice(idx, 1);
+      renderTracks();
+    });
+    root.appendChild(card);
+  });
+}
+
+function effectiveFrameIndex(i, total, dir) {
+  if (dir === 'reverse') return total - 1 - i;
+  if (dir === 'pingpong') {
+    const half = (total - 1) / 2;
+    return i <= half ? i * 2 : (total - 1 - i) * 2;
+  }
+  return i;
+}
+
+function applyTracksAtFrame(i, params) {
+  const ef = effectiveFrameIndex(i, params.frames, params.direction);
+  const ease = EASINGS[params.easing];
+  for (const t of animTracks) {
+    if (!t.enabled) continue;
+    const start = t.start;
+    const end = Math.max(t.end, t.start);
+    let val;
+    if (ef <= start) val = t.from;
+    else if (ef >= end) val = t.to;
+    else {
+      const localT = (ef - start) / (end - start);
+      val = t.from + (t.to - t.from) * ease(localT);
+    }
+    setAnimParam(t.paramId, val);
+  }
+}
+
 function getAnimParams() {
   return {
-    paramId: $('animParam').value,
-    from: parseFloat($('animFrom').value),
-    to: parseFloat($('animTo').value),
     frames: Math.max(2, parseInt($('animFrames').value)),
     fps: Math.max(1, parseInt($('animFps').value)),
     direction: $('animDir').value,
@@ -1139,14 +1229,6 @@ function getAnimParams() {
     quality: parseInt($('animQuality').value),
     loop: $('animLoop').checked,
   };
-}
-
-function valueForFrame(i, total, params) {
-  let t = i / (total - 1);
-  if (params.direction === 'reverse') t = 1 - t;
-  else if (params.direction === 'pingpong') t = t < 0.5 ? t * 2 : (1 - t) * 2;
-  t = EASINGS[params.easing](t);
-  return params.from + (params.to - params.from) * t;
 }
 
 function setAnimParam(paramId, value) {
@@ -1158,6 +1240,16 @@ function setAnimParam(paramId, value) {
   const valEl = $(paramId + 'Val');
   if (valEl) valEl.textContent = typeof value === 'number' ? value.toFixed(2) : value;
 }
+
+animTracks = [defaultTrackFor('cell')];
+renderTracks();
+
+$('animAddTrack').addEventListener('click', () => {
+  const used = new Set(animTracks.map(t => t.paramId));
+  const next = ANIM_PARAM_OPTIONS.find(o => !used.has(o.id)) || ANIM_PARAM_OPTIONS[4];
+  animTracks.push(defaultTrackFor(next.id));
+  renderTracks();
+});
 
 let previewRaf = null;
 
@@ -1176,7 +1268,7 @@ $('animPreview').addEventListener('click', () => {
   const step = (now) => {
     const elapsed = now - start;
     const i = Math.floor(elapsed / frameDur) % params.frames;
-    setAnimParam(params.paramId, valueForFrame(i, params.frames, params));
+    applyTracksAtFrame(i, params);
     render();
     previewRaf = requestAnimationFrame(step);
   };
@@ -1205,7 +1297,13 @@ $('animExport').addEventListener('click', async () => {
   }
   const params = getAnimParams();
 
-  const savedValue = $(params.paramId).value;
+  const savedValues = {};
+  for (const t of animTracks) {
+    if (t.enabled) {
+      const el = $(t.paramId);
+      if (el) savedValues[t.paramId] = el.type === 'checkbox' ? el.checked : el.value;
+    }
+  }
   $('animExport').disabled = true;
   $('animStatus').textContent = 'Loading worker…';
 
@@ -1218,7 +1316,7 @@ $('animExport').addEventListener('click', async () => {
     return;
   }
 
-  setAnimParam(params.paramId, valueForFrame(0, params.frames, params));
+  applyTracksAtFrame(0, params);
   _render();
 
   const approxMB = (params.frames * canvas.width * canvas.height * 4) / 1024 / 1024;
@@ -1246,12 +1344,15 @@ $('animExport').addEventListener('click', async () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `ascii-${params.paramId}-${params.from}-to-${params.to}.gif`;
+    const names = animTracks.filter(t => t.enabled).map(t => t.paramId).join('-') || 'anim';
+    link.download = `ascii-${names}-${params.frames}f.gif`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     $('animStatus').textContent = `Saved (${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
     $('animExport').disabled = false;
-    setAnimParam(params.paramId, parseFloat(savedValue));
+    for (const [k, v] of Object.entries(savedValues)) {
+      setAnimParam(k, typeof v === 'boolean' ? v : parseFloat(v));
+    }
     render();
   });
   gif.on('abort', () => {
@@ -1274,7 +1375,7 @@ $('animExport').addEventListener('click', async () => {
     }
   } else {
     for (let i = 0; i < params.frames; i++) {
-      setAnimParam(params.paramId, valueForFrame(i, params.frames, params));
+      applyTracksAtFrame(i, params);
       _render();
       gif.addFrame(canvas, { copy: true, delay: frameDelay });
       $('animStatus').textContent = `Rendering frame ${i + 1}/${params.frames}`;
@@ -1324,7 +1425,7 @@ const SETTING_KEYS = [
   'charset','customChars','cell','color','contrast','gamma','edgeThresh','aspect','dither',
   'saturation','hue','bgColor','palette','font','fontWeight',
   'invert','edges','bloom','bloomAmt','scanlines','scanAmt','vignette','vigAmt','chromab','grain',
-  'animFrom','animTo','animFrames','animFps','animDir','animEase','animQuality','animLoop','animParam','animSource',
+  'animFrames','animFps','animDir','animEase','animQuality','animLoop','animSource',
   'pngScale','pngTransparent',
 ];
 
@@ -1335,15 +1436,21 @@ function snapshotSettings() {
     if (!el) continue;
     s[k] = el.type === 'checkbox' ? el.checked : el.value;
   }
+  s._tracks = JSON.parse(JSON.stringify(animTracks));
   return s;
 }
 
 function applySettings(s) {
   for (const [k, v] of Object.entries(s)) {
+    if (k === '_tracks') continue;
     const el = $(k); if (!el) continue;
     if (el.type === 'checkbox') el.checked = v; else el.value = v;
     const numEl = $(k + 'Num'); if (numEl) numEl.value = v;
     const valEl = $(k + 'Val'); if (valEl) valEl.textContent = v;
+  }
+  if (Array.isArray(s._tracks) && s._tracks.length > 0) {
+    animTracks = s._tracks.map(t => ({ ...t }));
+    renderTracks();
   }
   $('paletteRow').style.display = $('color').value === 'palette' ? 'flex' : 'none';
   $('customChars').style.display = $('charset').value === 'custom' ? 'block' : 'none';
