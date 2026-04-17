@@ -1,3 +1,7 @@
+# Documentation
+
+https://google-50c0c90a.mintlify.app/
+
 # ASCII
 
 A browser-based ASCII art converter. Drop an image, video, or point it at your webcam — get live ASCII back with granular cell sizing, rich color modes, dithering, retro palettes, and animated GIF export.
