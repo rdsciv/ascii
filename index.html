@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700;800&family=IBM+Plex+Mono:wght@400;700&family=Space+Mono:wght@400;700&family=Fira+Code:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=DM+Mono:wght@400;500&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0a0a0a; color: #ddd; min-height: 100vh; font: 13px/1.4 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+  body { display: grid; grid-template-columns: 260px 1fr; gap: 1px; background: #222; min-height: 100vh; }
+  aside { background: #0a0a0a; padding: 20px; overflow-y: auto; }
+  main  { background: #000; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; }
+  h1 { font: 700 18px/1 'JetBrains Mono'; margin: 0 0 20px; letter-spacing: 0.04em; }
+  label.group { display: block; margin-bottom: 16px; color: #888; text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+  .group > .row { display: flex; align-items: center; gap: 10px; margin-top: 6px; color: #ddd; text-transform: none; letter-spacing: 0; font-size: 13px; }
+  input[type="range"] { width: 100%; accent-color: #6fd36f; }
+  input[type="number"], select, input[type="text"] {
+    width: 100%; background: #111; color: #ddd; border: 1px solid #222;
+    padding: 6px 8px; font: 12px/1 'JetBrains Mono', monospace; border-radius: 3px;
+  }
+  input[type="checkbox"] { accent-color: #6fd36f; }
+  button {
+    width: 100%; background: #111; color: #ddd; border: 1px solid #333;
+    padding: 8px; font: 12px/1 'JetBrains Mono', monospace; border-radius: 3px;
+    cursor: pointer; margin-top: 4px;
+  }
+  button:hover { border-color: #6fd36f; color: #6fd36f; }
+  .drop {
+    border: 1px dashed #333; border-radius: 4px; padding: 24px;
+    text-align: center; color: #888; cursor: pointer; transition: border-color 0.15s;
+  }
+  .drop.dragging { border-color: #6fd36f; color: #6fd36f; }
+  .drop input { display: none; }
+  #canvas { max-width: 100%; max-height: calc(100vh - 40px); display: block; image-rendering: pixelated; }
+  .hint { color: #555; font-size: 11px; margin-top: 4px; }
+  .source-info {
+    color: #6fd36f; font-size: 11px; margin: 6px 0 0;
+    word-break: break-all; min-height: 14px;
+  }
+  .val { color: #6fd36f; font-weight: 700; min-width: 32px; text-align: right; }
+  hr { border: none; border-top: 1px solid #222; margin: 16px 0; }
+  #fullDrop {
+    position: fixed; inset: 0; background: rgba(111, 211, 111, 0.18);
+    border: 2px dashed #6fd36f; z-index: 999; pointer-events: none;
+    display: none; align-items: center; justify-content: center;
+    color: #6fd36f; font-size: 24px; letter-spacing: 0.1em;
+  }
+  #fullDrop.show { display: flex; }
+  kbd { background: #111; border: 1px solid #333; border-radius: 3px; padding: 1px 4px; font-size: 10px; color: #ddd; }
+  @media (max-width: 720px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    aside { max-height: 50vh; }
+    main { min-height: 50vh; }
+  }
+  main:fullscreen { background: #000; padding: 0; }
+  main:fullscreen #canvas { max-width: 100vw; max-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="fullDrop">DROP IMAGE</div>
+<aside>
+  <h1>ASCII</h1>
+
+  <label class="group">Preset
+    <div class="row">
+      <select id="preset" style="flex:1">
+        <option value="">(choose…)</option>
+        <option value="classic">Classic</option>
+        <option value="matrix">Matrix</option>
+        <option value="newspaper">Newspaper</option>
+        <option value="crt">CRT Terminal</option>
+        <option value="neon">Neon</option>
+        <option value="gameboy">Game Boy</option>
+        <option value="blueprint">Blueprint</option>
+        <option value="xerox">Xerox</option>
+      </select>
+      <button id="applyPreset" style="width:auto;flex:0 0 auto">Apply</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="presetName" placeholder="Preset name" style="flex:1">
+      <button id="saveUserPreset" style="flex:0 0 auto;width:auto">Save</button>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <select id="userPresets" style="flex:1">
+        <option value="">(custom…)</option>
+      </select>
+      <button id="loadUserPreset" style="flex:0 0 auto;width:auto">Load</button>
+      <button id="deleteUserPreset" style="flex:0 0 auto;width:auto">×</button>
+    </div>
+    <button id="shareUrl" style="margin-top:4px">Copy share link</button>
+    <button id="resetAll" style="margin-top:4px">Reset to defaults</button>
+  </label>
+
+  <label class="drop" id="drop">
+    <div>Drop image or click</div>
+    <div class="hint">JPG · PNG · WebP · GIF · MP4 · MOV</div>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,video/*">
+  </label>
+  <div id="sourceInfo" class="source-info"></div>
+  <button id="startWebcam" style="margin-top:6px">Start webcam</button>
+  <div id="videoControls" style="display:none; margin-top:6px">
+    <div class="row">
+      <button id="videoPlay" style="flex:0 0 60px">Play</button>
+      <input type="range" id="videoScrub" min="0" max="100" step="0.01" value="0" style="flex:1">
+    </div>
+    <div class="hint"><span id="videoDuration">0s</span></div>
+  </div>
+
+  <hr>
+
+  <label class="group">Character set
+    <div class="row">
+      <select id="charset">
+        <option value="light" selected>Light — classic</option>
+        <option value="dense">Dense — 65 chars</option>
+        <option value="blocks">Blocks — ░▒▓█</option>
+        <option value="binary">Binary — 01</option>
+        <option value="dots">Dots — ·∙•●</option>
+        <option value="hatching">Hatching — /\|</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <input type="text" id="customChars" placeholder=" .:-=+*#%@" style="margin-top: 6px; display:none;">
+    <div class="row" style="margin-top:6px">
+      <select id="font" style="flex:1">
+        <option value="'JetBrains Mono', ui-monospace, monospace" selected>JetBrains Mono</option>
+        <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+        <option value="'Space Mono', monospace">Space Mono</option>
+        <option value="'Fira Code', monospace">Fira Code</option>
+        <option value="'Source Code Pro', monospace">Source Code Pro</option>
+        <option value="'Inconsolata', monospace">Inconsolata</option>
+        <option value="'DM Mono', monospace">DM Mono</option>
+        <option value="'Courier Prime', monospace">Courier Prime</option>
+        <option value="ui-monospace, monospace">System mono</option>
+      </select>
+    </div>
+    <div class="row" style="margin-top:6px">Weight
+      <input type="range" id="fontWeight" min="100" max="900" step="100" value="700" style="flex:1">
+      <span class="val" id="fontWeightVal">700</span>
+    </div>
+  </label>
+
+  <label class="group">Cell size <span class="val" id="cellVal">10.0</span>
+    <div class="row">
+      <input type="range" id="cell" min="1" max="500" step="0.5" value="10" style="flex:1">
+      <input type="number" id="cellNum" min="1" max="2000" step="0.1" value="10" style="width:70px">
+    </div>
+    <div class="hint">1 = pixel art. 500+ = giant chars.</div>
+  </label>
+
+<label class="group">Color
+  <div class="row">
+    <select id="color">
+      <option value="source" selected>Source — full color</option>
+      <option value="source-boost">Source boosted — saturated</option>
+      <option value="white">White on black</option>
+      <option value="inverse">Black on white</option>
+      <option value="green">Green terminal</option>
+      <option value="amber">Amber terminal</option>
+      <option value="blue">Cyber blue</option>
+      <option value="gradient">Gradient ramp</option>
+      <option value="palette">Palette</option>
+    </select>
+  </div>
+  <div class="row">Saturation
+    <input type="range" id="saturation" min="0" max="3" step="0.05" value="1" style="flex:1">
+    <input type="number" id="saturationNum" min="0" max="5" step="0.05" value="1" style="width:60px">
+  </div>
+  <div class="row">Hue shift
+    <input type="range" id="hue" min="-180" max="180" step="1" value="0" style="flex:1">
+    <input type="number" id="hueNum" min="-180" max="180" step="1" value="0" style="width:60px">
+  </div>
+  <div class="row">BG
+    <input type="color" id="bgColor" value="#000000" style="flex:1;height:28px;padding:0;border:none;background:none">
+  </div>
+  <div class="row" id="paletteRow" style="display:none">
+    <select id="palette">
+      <option value="cga">CGA</option>
+      <option value="ega">EGA</option>
+      <option value="c64">C64</option>
+      <option value="gameboy">Game Boy</option>
+      <option value="pico8">PICO-8</option>
+    </select>
+  </div>
+</label>
+
+  <label class="group">Adjustments
+    <div class="row">Contrast
+      <input type="range" id="contrast" min="0.1" max="5" step="0.05" value="1.2" style="flex:1">
+      <input type="number" id="contrastNum" min="0" max="10" step="0.05" value="1.2" style="width:60px">
+    </div>
+    <div class="row">Gamma
+      <input type="range" id="gamma" min="0.1" max="5" step="0.05" value="1" style="flex:1">
+      <input type="number" id="gammaNum" min="0" max="10" step="0.05" value="1" style="width:60px">
+    </div>
+    <div class="row">Char aspect
+      <input type="range" id="aspect" min="0.3" max="1" step="0.01" value="0.55" style="flex:1">
+      <input type="number" id="aspectNum" min="0.1" max="2" step="0.01" value="0.55" style="width:60px">
+    </div>
+    <div class="row">Edge thresh
+      <input type="range" id="edgeThresh" min="0" max="200" step="1" value="30" style="flex:1">
+      <input type="number" id="edgeThreshNum" min="0" max="500" step="1" value="30" style="width:60px">
+    </div>
+    <div class="row">Dither
+      <select id="dither" style="flex:1">
+        <option value="none" selected>None</option>
+        <option value="fs">Floyd-Steinberg</option>
+        <option value="atkinson">Atkinson</option>
+        <option value="bayer4">Ordered 4×4</option>
+        <option value="bayer8">Ordered 8×8</option>
+      </select>
+    </div>
+    <div class="row"><label><input type="checkbox" id="invert"> Invert</label></div>
+    <div class="row"><label><input type="checkbox" id="edges"> Edge-aware chars</label></div>
+  </label>
+
+<label class="group">Post
+  <div class="row"><label style="flex:0 0 auto"><input type="checkbox" id="bloom"> Bloom</label>
+    <input type="range" id="bloomAmt" min="0" max="1.5" step="0.05" value="0.55" style="flex:1">
+  </div>
+  <div class="row"><label style="flex:0 0 auto"><input type="checkbox" id="scanlines"> Scanlines</label>
+    <input type="range" id="scanAmt" min="0" max="1" step="0.05" value="0.35" style="flex:1">
+  </div>
+  <div class="row"><label style="flex:0 0 auto"><input type="checkbox" id="vignette"> Vignette</label>
+    <input type="range" id="vigAmt" min="0" max="1" step="0.05" value="0.8" style="flex:1">
+  </div>
+  <div class="row"><label><input type="checkbox" id="chromab"> Chromatic aberration</label></div>
+  <div class="row"><label><input type="checkbox" id="grain"> Film grain</label></div>
+</label>
+
+  <hr>
+
+  <div class="row">
+    <select id="pngScale" style="flex:1">
+      <option value="1" selected>1× PNG</option>
+      <option value="2">2× PNG</option>
+      <option value="4">4× PNG</option>
+    </select>
+    <label style="flex:0 0 auto"><input type="checkbox" id="pngTransparent"> Transparent</label>
+  </div>
+  <button id="savePng">Save PNG</button>
+  <button id="copyText">Copy as text</button>
+  <button id="saveSvg">Save SVG</button>
+  <button id="saveAnsi">Save ANSI (.ans)</button>
+  <button id="saveTxt">Download TXT</button>
+  <button id="fullscreenBtn">Fullscreen (F)</button>
+
+  <hr>
+  <label class="group">Animate
+    <div class="row">Source
+      <select id="animSource" style="flex:1">
+        <option value="param" selected>Parameter sweep</option>
+        <option value="video">Video timeline</option>
+      </select>
+    </div>
+    <div class="row">Parameter
+      <select id="animParam" style="flex:1">
+        <option value="cell" selected>Cell size</option>
+        <option value="contrast">Contrast</option>
+        <option value="gamma">Gamma</option>
+        <option value="saturation">Saturation</option>
+        <option value="hue">Hue shift</option>
+        <option value="bloomAmt">Bloom amount</option>
+        <option value="edgeThresh">Edge threshold</option>
+        <option value="fontWeight">Font weight</option>
+      </select>
+    </div>
+    <div class="row">From
+      <input type="number" id="animFrom" min="0" max="2000" step="0.5" value="1" style="width:70px">
+      To
+      <input type="number" id="animTo" min="0" max="2000" step="0.5" value="60" style="width:70px">
+    </div>
+    <div class="row">Frames
+      <input type="number" id="animFrames" min="2" max="300" step="1" value="60" style="width:70px">
+      FPS
+      <input type="number" id="animFps" min="1" max="60" step="1" value="24" style="width:60px">
+    </div>
+    <div class="row">Direction
+      <select id="animDir" style="flex:1">
+        <option value="forward" selected>From → To</option>
+        <option value="reverse">To → From</option>
+        <option value="pingpong">Ping-pong</option>
+      </select>
+    </div>
+    <div class="row">Easing
+      <select id="animEase" style="flex:1">
+        <option value="linear" selected>Linear</option>
+        <option value="easeInOut">Ease in/out</option>
+        <option value="easeIn">Ease in</option>
+        <option value="easeOut">Ease out</option>
+        <option value="expo">Exponential</option>
+      </select>
+    </div>
+    <div class="row">Quality
+      <input type="range" id="animQuality" min="1" max="30" step="1" value="10" style="flex:1">
+      <span class="val" id="animQualityVal">10</span>
+    </div>
+    <div class="row"><label><input type="checkbox" id="animLoop" checked> Loop</label></div>
+    <button id="animPreview" style="margin-top:6px">Preview animation</button>
+    <button id="animExport" style="margin-top:4px">Export GIF</button>
+    <div id="animStatus" class="hint" style="min-height:14px"></div>
+  </label>
+
+  <hr>
+  <div class="hint" style="line-height:1.6">
+    <strong>Keys:</strong>
+    <kbd>F</kbd> fullscreen · <kbd>S</kbd> save PNG · <kbd>G</kbd> export GIF ·
+    <kbd>Space</kbd> play anim · <kbd>[</kbd>/<kbd>]</kbd> cell size
+  </div>
+</aside>
+
+<main>
+  <canvas id="canvas" width="1280" height="720"></canvas>
+  <div id="renderBusy" style="position:absolute;top:10px;right:10px;padding:6px 10px;background:#111;border:1px solid #333;color:#6fd36f;font-size:11px;display:none;">Rendering…</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.js"></script>
+<script>
+// ── Character sets, brightness-ordered dark→light ───────────────
+const CHARSETS = {
+  light:    ' .:-=+*#%@',
+  dense:    ' `.\'^",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+  blocks:   ' ░▒▓█',
+  binary:   ' 01',
+  dots:     ' ·∙•●',
+  hatching: ' |/\\-_=#',
+};
+// Edge-direction chars: [horizontal, diagonal1, vertical, diagonal2]
+const EDGE_CHARS = ['─', '╲', '│', '╱'];
+
+const PALETTES = {
+  cga:     ['#000000','#55FFFF','#FF55FF','#FFFFFF'],
+  ega:     ['#000000','#0000AA','#00AA00','#00AAAA','#AA0000','#AA00AA','#AA5500','#AAAAAA',
+            '#555555','#5555FF','#55FF55','#55FFFF','#FF5555','#FF55FF','#FFFF55','#FFFFFF'],
+  c64:     ['#000000','#FFFFFF','#68372B','#70A4B2','#6F3D86','#588D43','#352879','#B8C76F',
+            '#6F4F25','#433900','#9A6759','#444444','#6C6C6C','#9AD284','#6C5EB5','#959595'],
+  gameboy: ['#0f380f','#306230','#8bac0f','#9bbc0f'],
+  pico8:   ['#000000','#1D2B53','#7E2553','#008751','#AB5236','#5F574F','#C2C3C7','#FFF1E8',
+            '#FF004D','#FFA300','#FFEC27','#00E436','#29ADFF','#83769C','#FF77A8','#FFCCAA'],
+};
+
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function nearestPaletteColor(r, g, b, palette) {
+  let best = palette[0], bestDist = Infinity;
+  for (const hex of palette) {
+    const [pr, pg, pb] = hexToRgb(hex);
+    const d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2;
+    if (d < bestDist) { bestDist = d; best = hex; }
+  }
+  return best;
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+  else if (max === g) h = ((b - r) / d + 2);
+  else h = ((r - g) / d + 4);
+  return [h * 60, s, l];
+}
+
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  if (s === 0) { const v = Math.round(l * 255); return [v, v, v]; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const hk = h / 360;
+  const t = (n) => {
+    if (n < 0) n += 1; if (n > 1) n -= 1;
+    if (n < 1/6) return p + (q - p) * 6 * n;
+    if (n < 1/2) return q;
+    if (n < 2/3) return p + (q - p) * (2/3 - n) * 6;
+    return p;
+  };
+  return [Math.round(t(hk + 1/3) * 255), Math.round(t(hk) * 255), Math.round(t(hk - 1/3) * 255)];
+}
+
+const BAYER4 = [
+  [0, 8, 2,10],
+  [12,4,14,6],
+  [3,11,1,9],
+  [15,7,13,5]
+].map(r => r.map(v => v / 16 - 0.5));
+
+const BAYER8 = (() => {
+  const base = BAYER4;
+  const m = [];
+  for (let y = 0; y < 8; y++) {
+    m[y] = [];
+    for (let x = 0; x < 8; x++) {
+      const quad = (y < 4 ? 0 : 1) * 2 + (x < 4 ? 0 : 1);
+      const bx = x % 4, by = y % 4;
+      m[y][x] = (base[by][bx] + 0.5 + [0, 0.5, 0.75, 0.25][quad]) / 4 - 0.5;
+    }
+  }
+  return m;
+})();
+
+function ditherLuminances(lumGrid, cols, rows, mode) {
+  if (mode === 'none') return lumGrid;
+  if (mode === 'bayer4' || mode === 'bayer8') {
+    const mat = mode === 'bayer4' ? BAYER4 : BAYER8;
+    const size = mat.length;
+    const out = new Float32Array(lumGrid.length);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        out[y * cols + x] = Math.min(1, Math.max(0, lumGrid[y * cols + x] + mat[y % size][x % size] * 0.2));
+      }
+    }
+    return out;
+  }
+  const out = Float32Array.from(lumGrid);
+  const steps = mode === 'fs' ? 8 : 16;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = y * cols + x;
+      const old = out[i];
+      const q = Math.round(old * (steps - 1)) / (steps - 1);
+      const err = old - q;
+      out[i] = q;
+      if (mode === 'fs') {
+        if (x + 1 < cols) out[i + 1] += err * 7 / 16;
+        if (y + 1 < rows) {
+          if (x > 0) out[i + cols - 1] += err * 3 / 16;
+          out[i + cols] += err * 5 / 16;
+          if (x + 1 < cols) out[i + cols + 1] += err * 1 / 16;
+        }
+      } else {
+        const e = err / 8;
+        if (x + 1 < cols) out[i + 1] += e;
+        if (x + 2 < cols) out[i + 2] += e;
+        if (y + 1 < rows) {
+          if (x > 0) out[i + cols - 1] += e;
+          out[i + cols] += e;
+          if (x + 1 < cols) out[i + cols + 1] += e;
+        }
+        if (y + 2 < rows) out[i + 2 * cols] += e;
+      }
+    }
+  }
+  return out;
+}
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('canvas'), ctx = canvas.getContext('2d');
+
+let sourceImage = null;
+let sourceName = null;
+let sourceDims = null;
+let loadToken = 0;
+
+// ── File input + drag ─────────────────────────────────────────
+const drop = $('drop'), fileInput = $('file');
+fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.add('dragging');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.remove('dragging');
+}));
+drop.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const it of items) {
+    if (it.type.startsWith('image/')) {
+      const file = it.getAsFile();
+      if (file) { loadFile(file); e.preventDefault(); return; }
+    }
+  }
+});
+
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => {
+  if (e.dataTransfer?.types?.includes('Files')) {
+    dragDepth++;
+    $('fullDrop').classList.add('show');
+  }
+});
+window.addEventListener('dragleave', () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) $('fullDrop').classList.remove('show');
+});
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  $('fullDrop').classList.remove('show');
+  const f = e.dataTransfer?.files?.[0];
+  if (f) loadFile(f);
+});
+
+let videoSource = null;
+let videoCanvas = null;
+let videoUrl = null;
+let videoToken = 0;
+
+async function loadFile(file) {
+  if (!file) return;
+  if (file.type.startsWith('video/')) return loadVideoFile(file);
+  if (!file.type.startsWith('image/')) {
+    console.warn('Not an image or video:', file.type);
+    return;
+  }
+  stopWebcam();
+  const myToken = ++loadToken;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    if (myToken !== loadToken) return;
+    sourceImage = img;
+    sourceName = file.name;
+    sourceDims = { w: img.naturalWidth, h: img.naturalHeight };
+    hideVideoScrubber();
+    updateSourceDisplay();
+    render();
+  } catch (err) {
+    if (myToken !== loadToken) return;
+    alert(`Failed to load image: ${err.message}`);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function loadVideoFile(file) {
+  stopWebcam();
+  const myToken = ++videoToken;
+  if (videoSource) { videoSource.pause(); }
+  if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; }
+  const nextVideo = document.createElement('video');
+  const nextUrl = URL.createObjectURL(file);
+  nextVideo.src = nextUrl;
+  nextVideo.muted = true;
+  nextVideo.preload = 'auto';
+  await new Promise(r => nextVideo.addEventListener('loadedmetadata', r, { once: true }));
+  if (myToken !== videoToken) { URL.revokeObjectURL(nextUrl); return; }
+  nextVideo.currentTime = 0;
+  await new Promise(r => nextVideo.addEventListener('seeked', r, { once: true }));
+  if (myToken !== videoToken) { URL.revokeObjectURL(nextUrl); return; }
+  videoSource = nextVideo;
+  videoUrl = nextUrl;
+  videoCanvas = document.createElement('canvas');
+  videoCanvas.width = videoSource.videoWidth;
+  videoCanvas.height = videoSource.videoHeight;
+  const vctx = videoCanvas.getContext('2d');
+  vctx.drawImage(videoSource, 0, 0);
+  sourceImage = videoCanvas;
+  sourceName = file.name;
+  sourceDims = { w: videoCanvas.width, h: videoCanvas.height };
+  updateSourceDisplay();
+  showVideoScrubber(videoSource.duration);
+  wireScrubber(videoSource, videoCanvas, vctx);
+  render();
+}
+
+function showVideoScrubber(duration) {
+  $('videoControls').style.display = 'block';
+  $('videoScrub').max = duration.toFixed(2);
+  $('videoDuration').textContent = duration.toFixed(2) + 's';
+}
+
+function hideVideoScrubber() {
+  $('videoControls').style.display = 'none';
+  if (videoSource) { videoSource.pause(); }
+  if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; }
+  videoSource = null;
+  videoCanvas = null;
+}
+
+function wireScrubber(video, cam, cctx) {
+  $('videoScrub').oninput = () => { video.currentTime = parseFloat($('videoScrub').value); };
+  video.addEventListener('seeked', () => {
+    cctx.drawImage(video, 0, 0);
+    render();
+  });
+  $('videoPlay').onclick = () => {
+    if (video.paused) {
+      video.play();
+      $('videoPlay').textContent = 'Pause';
+      const loop = () => {
+        if (video.paused) return;
+        cctx.drawImage(video, 0, 0);
+        $('videoScrub').value = video.currentTime;
+        render();
+        requestAnimationFrame(loop);
+      };
+      loop();
+    } else {
+      video.pause();
+      $('videoPlay').textContent = 'Play';
+    }
+  };
+}
+
+let webcamVideo = null;
+let webcamRaf = null;
+
+function stopWebcam() {
+  if (!webcamVideo) return;
+  webcamVideo.srcObject.getTracks().forEach(t => t.stop());
+  webcamVideo = null;
+  if (webcamRaf) { cancelAnimationFrame(webcamRaf); webcamRaf = null; }
+  $('startWebcam').textContent = 'Start webcam';
+}
+
+$('startWebcam').addEventListener('click', async () => {
+  if (webcamVideo) { stopWebcam(); return; }
+  hideVideoScrubber();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    webcamVideo = document.createElement('video');
+    webcamVideo.srcObject = stream;
+    webcamVideo.muted = true;
+    await webcamVideo.play();
+    const cam = document.createElement('canvas');
+    cam.width = webcamVideo.videoWidth;
+    cam.height = webcamVideo.videoHeight;
+    const cctx = cam.getContext('2d');
+    sourceImage = cam;
+    sourceName = 'webcam';
+    sourceDims = { w: cam.width, h: cam.height };
+    updateSourceDisplay();
+    $('startWebcam').textContent = 'Stop webcam';
+    const tick = () => {
+      cctx.drawImage(webcamVideo, 0, 0, cam.width, cam.height);
+      render();
+      webcamRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (err) {
+    alert(`Webcam access denied: ${err.message}`);
+  }
+});
+
+function updateSourceDisplay() {
+  const el = $('sourceInfo');
+  el.textContent = sourceDims ? `${sourceName} — ${sourceDims.w}×${sourceDims.h}` : '';
+}
+
+// ── Controls ──────────────────────────────────────────────────
+function bindRange(rangeId, numId, valId, format) {
+  const range = $(rangeId), num = $(numId), val = valId ? $(valId) : null;
+  const update = (source) => {
+    const v = parseFloat(source.value);
+    if (!Number.isFinite(v)) return;
+    range.value = v;
+    num.value = v;
+    if (val) val.textContent = format ? format(v) : v;
+    render();
+  };
+  range.addEventListener('input', () => update(range));
+  num.addEventListener('input', () => update(num));
+}
+
+bindRange('cell', 'cellNum', 'cellVal', (v) => v.toFixed(1));
+bindRange('contrast', 'contrastNum', null);
+bindRange('gamma', 'gammaNum', null);
+bindRange('edgeThresh', 'edgeThreshNum', null);
+bindRange('aspect', 'aspectNum', null);
+bindRange('saturation', 'saturationNum', null);
+bindRange('hue', 'hueNum', null);
+$('bgColor').addEventListener('input', render);
+$('palette').addEventListener('input', render);
+$('color').addEventListener('change', () => {
+  $('paletteRow').style.display = $('color').value === 'palette' ? 'flex' : 'none';
+  render();
+});
+['charset','invert','edges','bloom','scanlines','vignette','customChars'].forEach(id => {
+  $(id)?.addEventListener('input', () => {
+    $('customChars').style.display = $('charset').value === 'custom' ? 'block' : 'none';
+    render();
+  });
+});
+['bloomAmt','scanAmt','vigAmt','chromab','grain'].forEach(id => $(id).addEventListener('input', render));
+$('dither').addEventListener('change', render);
+$('font').addEventListener('change', render);
+$('fontWeight').addEventListener('input', () => {
+  $('fontWeightVal').textContent = $('fontWeight').value;
+  render();
+});
+
+// ── Render ────────────────────────────────────────────────────
+function render() {
+  if (!sourceImage) return;
+
+  const cellSize = Math.max(1, parseFloat($('cell').value));
+  const contrast = parseFloat($('contrast').value);
+  const gamma    = parseFloat($('gamma').value);
+  const invert   = $('invert').checked;
+  const useEdges = $('edges').checked;
+  const colorMode = $('color').value;
+  const charsetName = $('charset').value;
+  const customChars = $('customChars').value || ' .:-=+*#%@';
+  const chars = charsetName === 'custom' ? customChars : CHARSETS[charsetName];
+
+  // fit output canvas to image aspect, max 1600 wide
+  const maxW = 1600;
+  const aspect = sourceImage.height / sourceImage.width;
+  const outW = Math.min(sourceImage.width, maxW);
+  const outH = Math.round(outW * aspect);
+  canvas.width = outW;
+  canvas.height = outH;
+
+  const cols = Math.max(1, Math.floor(outW / cellSize));
+  // monospace chars are ~0.55 the width of their height, so rows need compensation
+  const charAspect = parseFloat($('aspect').value);
+  const rowH = cellSize / charAspect;
+  const rows = Math.max(1, Math.floor(outH / rowH));
+
+  // downsample source to cols × rows in an offscreen canvas
+  const sample = document.createElement('canvas');
+  sample.width = cols; sample.height = rows;
+  const sctx = sample.getContext('2d', { willReadFrequently: true });
+  sctx.imageSmoothingEnabled = true;
+  sctx.drawImage(sourceImage, 0, 0, cols, rows);
+  const pixels = sctx.getImageData(0, 0, cols, rows).data;
+
+  // edge detection (Sobel) if enabled
+  let edgeDir = null;
+  if (useEdges) {
+    edgeDir = new Uint8Array(cols * rows);
+    const lum = new Float32Array(cols * rows);
+    for (let i = 0; i < cols * rows; i++) {
+      const o = i * 4;
+      lum[i] = 0.299 * pixels[o] + 0.587 * pixels[o + 1] + 0.114 * pixels[o + 2];
+    }
+    const edgeMinMag = parseFloat($('edgeThresh').value);
+    for (let y = 1; y < rows - 1; y++) {
+      for (let x = 1; x < cols - 1; x++) {
+        const i = y * cols + x;
+        const gx = -lum[i - cols - 1] + lum[i - cols + 1] - 2 * lum[i - 1] + 2 * lum[i + 1] - lum[i + cols - 1] + lum[i + cols + 1];
+        const gy = -lum[i - cols - 1] - 2 * lum[i - cols] - lum[i - cols + 1] + lum[i + cols - 1] + 2 * lum[i + cols] + lum[i + cols + 1];
+        const mag = Math.hypot(gx, gy);
+        if (mag < edgeMinMag) { edgeDir[i] = 255; continue; } // too flat, use brightness char
+        let ang = Math.atan2(gy, gx) * 180 / Math.PI;
+        if (ang < 0) ang += 180;
+        edgeDir[i] = ang < 22.5 ? 0 : ang < 67.5 ? 1 : ang < 112.5 ? 2 : ang < 157.5 ? 3 : 0;
+      }
+    }
+  }
+
+  const lumGrid = new Float32Array(cols * rows);
+  for (let i = 0; i < cols * rows; i++) {
+    const o = i * 4;
+    let l = (0.299 * pixels[o] + 0.587 * pixels[o+1] + 0.114 * pixels[o+2]) / 255;
+    l = Math.pow(l, gamma);
+    l = Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
+    if (invert) l = 1 - l;
+    lumGrid[i] = l;
+  }
+  const ditherMode = $('dither').value;
+  const ditheredLum = ditherLuminances(lumGrid, cols, rows, ditherMode);
+
+  const bgColor = $('bgColor').value;
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, outW, outH);
+  ctx.font = `${parseInt($('fontWeight')?.value || 700)} ${cellSize}px ${$('font')?.value || "'JetBrains Mono', ui-monospace, monospace"}`;
+  ctx.textBaseline = 'top';
+
+  const saturation = parseFloat($('saturation').value);
+  const hueShift = parseFloat($('hue').value);
+  const paletteName = $('palette').value;
+  const palette = PALETTES[paletteName];
+
+  function colorForCell(r, g, b, lum) {
+    let sr = r, sg = g, sb = b;
+    if (saturation !== 1 || hueShift !== 0) {
+      const [h, s, l] = rgbToHsl(r, g, b);
+      [sr, sg, sb] = hslToRgb(h + hueShift, Math.min(1, s * saturation), l);
+    }
+    switch (colorMode) {
+      case 'source':       return `rgb(${sr},${sg},${sb})`;
+      case 'source-boost': {
+        const [h, s, l] = rgbToHsl(sr, sg, sb);
+        const [br, bg_, bb] = hslToRgb(h, Math.min(1, s * 1.5), Math.min(0.75, l * 1.1 + 0.1));
+        return `rgb(${br},${bg_},${bb})`;
+      }
+      case 'green':   return `rgb(${40 + lum * 90}, ${160 + lum * 95}, ${60 + lum * 90})`;
+      case 'amber':   return `rgb(${200 + lum * 55}, ${130 + lum * 80}, 20)`;
+      case 'blue':    return `rgb(${60 + lum * 100}, ${180 + lum * 75}, 255)`;
+      case 'inverse': { const v = ((1 - lum) * 200) | 0; return `rgb(${v},${v},${v})`; }
+      case 'gradient': {
+        const t = lum;
+        return `rgb(${255 * t | 0}, ${60 * (1 - t) + 200 * t | 0}, ${180 * (1 - t) + 120 * t | 0})`;
+      }
+      case 'palette': return nearestPaletteColor(sr, sg, sb, palette);
+      default: { const v = (255 * lum) | 0; return `rgb(${v},${v},${v})`; }
+    }
+  }
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const idx = y * cols + x;
+      const i = idx * 4;
+      const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+      const lum = ditheredLum[idx];
+      let ch;
+      if (useEdges && edgeDir && edgeDir[idx] !== 255 && lum > 0.15) {
+        ch = EDGE_CHARS[edgeDir[idx]];
+      } else {
+        ch = chars[Math.round(lum * (chars.length - 1))];
+      }
+      if (ch === ' ') continue;
+      ctx.fillStyle = colorForCell(r, g, b, lum);
+      ctx.fillText(ch, x * cellSize, y * rowH);
+    }
+  }
+
+  // ── Post effects ──
+  if ($('bloom').checked) applyBloom(parseFloat($('bloomAmt').value));
+  if ($('scanlines').checked) applyScanlines(parseFloat($('scanAmt').value));
+  if ($('vignette').checked) applyVignette(parseFloat($('vigAmt').value));
+  if ($('chromab').checked) applyChromaticAberration();
+  if ($('grain').checked) applyGrain(0.1);
+}
+
+function applyBloom(amount) {
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width; tmp.height = canvas.height;
+  const tctx = tmp.getContext('2d');
+  tctx.filter = 'blur(6px) brightness(1.1)';
+  tctx.drawImage(canvas, 0, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = amount;
+  ctx.drawImage(tmp, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function applyScanlines(amount) {
+  ctx.fillStyle = `rgba(0,0,0,${amount})`;
+  for (let y = 0; y < canvas.height; y += 2) ctx.fillRect(0, y, canvas.width, 1);
+}
+
+function applyVignette(amount) {
+  const g = ctx.createRadialGradient(
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.3,
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.75
+  );
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,0,0,${amount})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function applyChromaticAberration() {
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width; tmp.height = canvas.height;
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(canvas, 0, 0);
+  const src = tctx.getImageData(0, 0, canvas.width, canvas.height);
+  const out = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const w = canvas.width, h = canvas.height, d = src.data, o = out.data, off = 3;
+  for (let i = 0; i < w * h; i++) {
+    const x = i % w, y = (i / w) | 0;
+    const rx = Math.max(0, x - off), bx = Math.min(w - 1, x + off);
+    o[i*4]   = d[(y*w + rx)*4];
+    o[i*4+1] = d[i*4+1];
+    o[i*4+2] = d[(y*w + bx)*4+2];
+    o[i*4+3] = 255;
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+function applyGrain(strength = 0.08) {
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * 255 * strength;
+    d[i]   = Math.max(0, Math.min(255, d[i] + n));
+    d[i+1] = Math.max(0, Math.min(255, d[i+1] + n));
+    d[i+2] = Math.max(0, Math.min(255, d[i+2] + n));
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ── Save / Copy ──────────────────────────────────────────────
+$('savePng').addEventListener('click', () => {
+  if (!sourceImage) return;
+  const scale = parseFloat($('pngScale').value);
+  const transparent = $('pngTransparent').checked;
+  if (scale === 1 && !transparent) {
+    const link = document.createElement('a');
+    link.download = 'ascii.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    return;
+  }
+  const out = document.createElement('canvas');
+  out.width = canvas.width * scale;
+  out.height = canvas.height * scale;
+  const octx = out.getContext('2d');
+  octx.imageSmoothingEnabled = false;
+  octx.drawImage(canvas, 0, 0, out.width, out.height);
+  if (transparent) {
+    const bg = hexToRgb($('bgColor').value);
+    const img = octx.getImageData(0, 0, out.width, out.height);
+    const d = img.data;
+    const tol = 8;
+    for (let i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i] - bg[0]) <= tol &&
+          Math.abs(d[i+1] - bg[1]) <= tol &&
+          Math.abs(d[i+2] - bg[2]) <= tol) {
+        d[i+3] = 0;
+      }
+    }
+    octx.putImageData(img, 0, 0);
+  }
+  const link = document.createElement('a');
+  link.download = `ascii-${scale}x${transparent ? '-transparent' : ''}.png`;
+  link.href = out.toDataURL('image/png');
+  link.click();
+});
+
+function generatePlainText() {
+  if (!sourceImage) return '';
+  const cellSize = Math.max(1, parseFloat($('cell').value));
+  const contrast = parseFloat($('contrast').value);
+  const gamma = parseFloat($('gamma').value);
+  const invert = $('invert').checked;
+  const charsetName = $('charset').value;
+  const customChars = $('customChars').value || ' .:-=+*#%@';
+  const chars = charsetName === 'custom' ? customChars : CHARSETS[charsetName];
+  const aspect = parseFloat($('aspect').value);
+  const cols = Math.max(1, Math.floor(canvas.width / cellSize));
+  const rows = Math.max(1, Math.floor((canvas.height * aspect) / cellSize));
+  const sample = document.createElement('canvas');
+  sample.width = cols; sample.height = rows;
+  const sctx = sample.getContext('2d', { willReadFrequently: true });
+  sctx.drawImage(sourceImage, 0, 0, cols, rows);
+  const px = sctx.getImageData(0, 0, cols, rows).data;
+  let out = '';
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      let l = (0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]) / 255;
+      l = Math.min(1, Math.max(0, (Math.pow(l, gamma) - 0.5) * contrast + 0.5));
+      if (invert) l = 1 - l;
+      out += chars[Math.round(l * (chars.length - 1))];
+    }
+    out += '\n';
+  }
+  return out;
+}
+
+$('copyText').addEventListener('click', async () => {
+  const text = generatePlainText();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    const b = $('copyText'); const orig = b.textContent;
+    b.textContent = 'Copied ✓';
+    setTimeout(() => b.textContent = orig, 1200);
+  } catch (e) { alert('Copy failed: ' + e.message); }
+});
+
+$('saveSvg').addEventListener('click', () => {
+  if (!sourceImage) return;
+  const cellSize = Math.max(1, parseFloat($('cell').value));
+  const contrast = parseFloat($('contrast').value);
+  const gamma = parseFloat($('gamma').value);
+  const invert = $('invert').checked;
+  const charsetName = $('charset').value;
+  const customChars = $('customChars').value || ' .:-=+*#%@';
+  const chars = charsetName === 'custom' ? customChars : CHARSETS[charsetName];
+  const aspect = parseFloat($('aspect').value);
+  const rowH = cellSize / aspect;
+
+  const maxW = 1600;
+  const aspectImg = sourceImage.height / sourceImage.width;
+  const outW = Math.min(sourceImage.width, maxW);
+  const outH = Math.round(outW * aspectImg);
+  const cols = Math.max(1, Math.floor(outW / cellSize));
+  const rows = Math.max(1, Math.floor(outH / rowH));
+
+  const sample = document.createElement('canvas');
+  sample.width = cols; sample.height = rows;
+  const sctx = sample.getContext('2d', { willReadFrequently: true });
+  sctx.drawImage(sourceImage, 0, 0, cols, rows);
+  const px = sctx.getImageData(0, 0, cols, rows).data;
+
+  const fontFamily = $('font').value.replace(/"/g, "'");
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${outW} ${outH}" width="${outW}" height="${outH}">`,
+    `<rect width="100%" height="100%" fill="${$('bgColor').value}"/>`,
+    `<g font-family="${fontFamily}" font-size="${cellSize}" font-weight="${$('fontWeight').value}" dominant-baseline="text-before-edge">`,
+  ];
+
+  const saturation = parseFloat($('saturation').value);
+  const hueShift = parseFloat($('hue').value);
+  const paletteName = $('palette').value;
+  const palette = PALETTES[paletteName];
+  const colorMode = $('color').value;
+  const localColor = (r, g, b, lum) => {
+    let sr = r, sg = g, sb = b;
+    if (saturation !== 1 || hueShift !== 0) {
+      const [h, s, l] = rgbToHsl(r, g, b);
+      [sr, sg, sb] = hslToRgb(h + hueShift, Math.min(1, s * saturation), l);
+    }
+    switch (colorMode) {
+      case 'source':       return `rgb(${sr},${sg},${sb})`;
+      case 'source-boost': {
+        const [h, s, l] = rgbToHsl(sr, sg, sb);
+        const [br, bg_, bb] = hslToRgb(h, Math.min(1, s * 1.5), Math.min(0.75, l * 1.1 + 0.1));
+        return `rgb(${br},${bg_},${bb})`;
+      }
+      case 'green':   return `rgb(${40 + lum * 90}, ${160 + lum * 95}, ${60 + lum * 90})`;
+      case 'amber':   return `rgb(${200 + lum * 55}, ${130 + lum * 80}, 20)`;
+      case 'blue':    return `rgb(${60 + lum * 100}, ${180 + lum * 75}, 255)`;
+      case 'inverse': { const v = ((1 - lum) * 200) | 0; return `rgb(${v},${v},${v})`; }
+      case 'gradient': {
+        const t = lum;
+        return `rgb(${255 * t | 0}, ${60 * (1 - t) + 200 * t | 0}, ${180 * (1 - t) + 120 * t | 0})`;
+      }
+      case 'palette': return nearestPaletteColor(sr, sg, sb, palette);
+      default: { const v = (255 * lum) | 0; return `rgb(${v},${v},${v})`; }
+    }
+  };
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      const r = px[i], g = px[i+1], b = px[i+2];
+      let l = (0.299*r + 0.587*g + 0.114*b) / 255;
+      l = Math.pow(l, gamma);
+      l = Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
+      if (invert) l = 1 - l;
+      const ch = chars[Math.round(l * (chars.length - 1))];
+      if (ch === ' ' || !ch) continue;
+      const safeCh = ch.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      const fill = localColor(r, g, b, l);
+      parts.push(`<text x="${(x*cellSize).toFixed(2)}" y="${((y+1)*rowH).toFixed(2)}" fill="${fill}">${safeCh}</text>`);
+    }
+  }
+  parts.push('</g></svg>');
+  const blob = new Blob([parts.join('')], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ascii.svg';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$('saveAnsi').addEventListener('click', () => {
+  if (!sourceImage) return;
+  const cellSize = Math.max(1, parseFloat($('cell').value));
+  const contrast = parseFloat($('contrast').value);
+  const gamma = parseFloat($('gamma').value);
+  const invert = $('invert').checked;
+  const charsetName = $('charset').value;
+  const customChars = $('customChars').value || ' .:-=+*#%@';
+  const chars = charsetName === 'custom' ? customChars : CHARSETS[charsetName];
+
+  const cols = Math.max(1, Math.floor(Math.min(sourceImage.width, 1600) / cellSize));
+  const rows = Math.max(1, Math.round(cols * (sourceImage.height / sourceImage.width) * 0.55));
+  const sample = document.createElement('canvas');
+  sample.width = cols; sample.height = rows;
+  const sctx = sample.getContext('2d', { willReadFrequently: true });
+  sctx.drawImage(sourceImage, 0, 0, cols, rows);
+  const px = sctx.getImageData(0, 0, cols, rows).data;
+
+  let out = '', lastColor = null;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4;
+      const r = px[i], g = px[i+1], b = px[i+2];
+      let l = (0.299*r + 0.587*g + 0.114*b) / 255;
+      l = Math.pow(l, gamma);
+      l = Math.min(1, Math.max(0, (l - 0.5) * contrast + 0.5));
+      if (invert) l = 1 - l;
+      const ch = chars[Math.round(l * (chars.length - 1))] || ' ';
+      const colKey = `${r},${g},${b}`;
+      if (colKey !== lastColor) {
+        out += `\x1b[38;2;${r};${g};${b}m`;
+        lastColor = colKey;
+      }
+      out += ch;
+    }
+    out += '\x1b[0m\n';
+    lastColor = null;
+  }
+  const blob = new Blob([out], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ascii.ans';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$('saveTxt').addEventListener('click', () => {
+  const out = generatePlainText();
+  if (!out) return;
+  const blob = new Blob([out], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ascii.txt';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+const EASINGS = {
+  linear:    (t) => t,
+  easeIn:    (t) => t * t,
+  easeOut:   (t) => 1 - (1 - t) * (1 - t),
+  easeInOut: (t) => t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t),
+  expo:      (t) => t === 0 ? 0 : Math.pow(2, 10 * t - 10),
+};
+
+function getAnimParams() {
+  return {
+    paramId: $('animParam').value,
+    from: parseFloat($('animFrom').value),
+    to: parseFloat($('animTo').value),
+    frames: Math.max(2, parseInt($('animFrames').value)),
+    fps: Math.max(1, parseInt($('animFps').value)),
+    direction: $('animDir').value,
+    easing: $('animEase').value,
+    quality: parseInt($('animQuality').value),
+    loop: $('animLoop').checked,
+  };
+}
+
+function valueForFrame(i, total, params) {
+  let t = i / (total - 1);
+  if (params.direction === 'reverse') t = 1 - t;
+  else if (params.direction === 'pingpong') t = t < 0.5 ? t * 2 : (1 - t) * 2;
+  t = EASINGS[params.easing](t);
+  return params.from + (params.to - params.from) * t;
+}
+
+function setAnimParam(paramId, value) {
+  const el = $(paramId);
+  if (!el) return;
+  el.value = value;
+  const numEl = $(paramId + 'Num');
+  if (numEl) numEl.value = typeof value === 'number' ? value.toFixed(2) : value;
+  const valEl = $(paramId + 'Val');
+  if (valEl) valEl.textContent = typeof value === 'number' ? value.toFixed(2) : value;
+}
+
+let previewRaf = null;
+
+$('animPreview').addEventListener('click', () => {
+  if (!sourceImage) { alert('Load an image first'); return; }
+  if (previewRaf) {
+    cancelAnimationFrame(previewRaf);
+    previewRaf = null;
+    $('animPreview').textContent = 'Preview animation';
+    return;
+  }
+  const params = getAnimParams();
+  const frameDur = 1000 / params.fps;
+  const start = performance.now();
+  $('animPreview').textContent = 'Stop preview';
+  const step = (now) => {
+    const elapsed = now - start;
+    const i = Math.floor(elapsed / frameDur) % params.frames;
+    setAnimParam(params.paramId, valueForFrame(i, params.frames, params));
+    render();
+    previewRaf = requestAnimationFrame(step);
+  };
+  previewRaf = requestAnimationFrame(step);
+});
+
+$('animQuality').addEventListener('input', () => $('animQualityVal').textContent = $('animQuality').value);
+
+let _gifWorkerUrl = null;
+async function getGifWorkerUrl() {
+  if (_gifWorkerUrl) return _gifWorkerUrl;
+  const resp = await fetch('https://cdn.jsdelivr.net/npm/gif.js.optimized@1.0.1/dist/gif.worker.js');
+  if (!resp.ok) throw new Error(`worker fetch ${resp.status}`);
+  const text = await resp.text();
+  _gifWorkerUrl = URL.createObjectURL(new Blob([text], { type: 'application/javascript' }));
+  return _gifWorkerUrl;
+}
+
+$('animExport').addEventListener('click', async () => {
+  if (!sourceImage) { alert('Load an image first'); return; }
+  if (typeof GIF === 'undefined') { alert('gif.js not loaded — check network'); return; }
+  if (previewRaf) {
+    cancelAnimationFrame(previewRaf);
+    previewRaf = null;
+    $('animPreview').textContent = 'Preview animation';
+  }
+  const params = getAnimParams();
+
+  const savedValue = $(params.paramId).value;
+  $('animExport').disabled = true;
+  $('animStatus').textContent = 'Loading worker…';
+
+  let workerUrl;
+  try {
+    workerUrl = await getGifWorkerUrl();
+  } catch (e) {
+    $('animStatus').textContent = 'Worker load failed: ' + e.message;
+    $('animExport').disabled = false;
+    return;
+  }
+
+  setAnimParam(params.paramId, valueForFrame(0, params.frames, params));
+  _render();
+
+  const approxMB = (params.frames * canvas.width * canvas.height * 4) / 1024 / 1024;
+  if (approxMB > 500) {
+    if (!confirm(`This GIF will use ~${approxMB.toFixed(0)} MB of working memory. Continue?`)) {
+      $('animExport').disabled = false;
+      $('animStatus').textContent = '';
+      return;
+    }
+  }
+
+  const gif = new GIF({
+    workers: 2,
+    quality: params.quality,
+    width: canvas.width,
+    height: canvas.height,
+    repeat: params.loop ? 0 : -1,
+    workerScript: workerUrl,
+  });
+
+  gif.on('progress', (p) => {
+    $('animStatus').textContent = `Encoding GIF… ${Math.round(p * 100)}%`;
+  });
+  gif.on('finished', (blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ascii-${params.paramId}-${params.from}-to-${params.to}.gif`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $('animStatus').textContent = `Saved (${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
+    $('animExport').disabled = false;
+    setAnimParam(params.paramId, parseFloat(savedValue));
+    render();
+  });
+  gif.on('abort', () => {
+    $('animStatus').textContent = 'Encoding aborted';
+    $('animExport').disabled = false;
+  });
+
+  const frameDelay = Math.round(1000 / params.fps);
+  if ($('animSource').value === 'video' && videoSource) {
+    const dur = videoSource.duration;
+    for (let i = 0; i < params.frames; i++) {
+      const t = (i / (params.frames - 1)) * dur;
+      videoSource.currentTime = t;
+      await new Promise(r => videoSource.addEventListener('seeked', r, { once: true }));
+      videoCanvas.getContext('2d').drawImage(videoSource, 0, 0);
+      _render();
+      gif.addFrame(canvas, { copy: true, delay: frameDelay });
+      $('animStatus').textContent = `Rendering frame ${i + 1}/${params.frames}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  } else {
+    for (let i = 0; i < params.frames; i++) {
+      setAnimParam(params.paramId, valueForFrame(i, params.frames, params));
+      _render();
+      gif.addFrame(canvas, { copy: true, delay: frameDelay });
+      $('animStatus').textContent = `Rendering frame ${i + 1}/${params.frames}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  $('animStatus').textContent = 'Encoding GIF…';
+  gif.render();
+});
+
+const PRESETS = {
+  classic:   { charset:'light', cell:10, color:'white', bgColor:'#000000', contrast:1.2, gamma:1.0, invert:false, edges:false, bloom:false, scanlines:false, vignette:false, saturation:1, hue:0, dither:'none' },
+  matrix:    { charset:'custom', customChars:'ﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃﾏｹﾒｴｶｷﾑﾕﾗｾﾈｽﾀﾇﾍ01', cell:12, color:'green', bgColor:'#001100', contrast:1.3, gamma:0.9, bloom:true, bloomAmt:0.6, scanlines:true, scanAmt:0.2, vignette:true, vigAmt:0.7 },
+  newspaper: { charset:'dense', cell:8, color:'inverse', bgColor:'#f6f1e5', contrast:1.5, gamma:1.2, invert:false, edges:true, bloom:false, scanlines:false, vignette:false, dither:'atkinson' },
+  crt:       { charset:'light', cell:14, color:'amber', bgColor:'#1a0a00', contrast:1.4, gamma:1.1, bloom:true, bloomAmt:0.8, scanlines:true, scanAmt:0.45, vignette:true, vigAmt:0.9, chromab:true },
+  neon:      { charset:'blocks', cell:12, color:'source-boost', bgColor:'#0a0520', saturation:2.5, contrast:1.6, bloom:true, bloomAmt:1.1, vignette:true, vigAmt:0.85 },
+  gameboy:   { charset:'dense', cell:8, color:'palette', palette:'gameboy', bgColor:'#9bbc0f', contrast:1.3, gamma:0.9, dither:'bayer4', bloom:false, scanlines:false, vignette:false },
+  blueprint: { charset:'hatching', cell:10, color:'blue', bgColor:'#0a2240', contrast:1.2, edges:true, bloom:false, scanlines:false, vignette:false, dither:'none' },
+  xerox:     { charset:'binary', cell:6, color:'inverse', bgColor:'#ffffff', contrast:2.0, gamma:1.4, dither:'fs', bloom:false, scanlines:false, vignette:false },
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  for (const [k, v] of Object.entries(p)) {
+    const el = $(k);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = Boolean(v);
+    else el.value = v;
+    const numEl = $(k + 'Num');
+    if (numEl) numEl.value = v;
+    const valEl = $(k + 'Val');
+    if (valEl) valEl.textContent = v;
+  }
+  $('paletteRow').style.display = $('color').value === 'palette' ? 'flex' : 'none';
+  $('customChars').style.display = $('charset').value === 'custom' ? 'block' : 'none';
+  render();
+}
+
+$('applyPreset').addEventListener('click', () => {
+  const name = $('preset').value;
+  if (name) applyPreset(name);
+});
+
+const SETTING_KEYS = [
+  'charset','customChars','cell','color','contrast','gamma','edgeThresh','aspect','dither',
+  'saturation','hue','bgColor','palette','font','fontWeight',
+  'invert','edges','bloom','bloomAmt','scanlines','scanAmt','vignette','vigAmt','chromab','grain',
+  'animFrom','animTo','animFrames','animFps','animDir','animEase','animQuality','animLoop','animParam','animSource',
+  'pngScale','pngTransparent',
+];
+
+function snapshotSettings() {
+  const s = {};
+  for (const k of SETTING_KEYS) {
+    const el = $(k);
+    if (!el) continue;
+    s[k] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  return s;
+}
+
+function applySettings(s) {
+  for (const [k, v] of Object.entries(s)) {
+    const el = $(k); if (!el) continue;
+    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+    const numEl = $(k + 'Num'); if (numEl) numEl.value = v;
+    const valEl = $(k + 'Val'); if (valEl) valEl.textContent = v;
+  }
+  $('paletteRow').style.display = $('color').value === 'palette' ? 'flex' : 'none';
+  $('customChars').style.display = $('charset').value === 'custom' ? 'block' : 'none';
+  render();
+}
+
+function loadUserPresetsList() {
+  const stored = JSON.parse(localStorage.getItem('ascii.presets') || '{}');
+  const sel = $('userPresets');
+  sel.innerHTML = '<option value="">(custom…)</option>' +
+    Object.keys(stored).sort().map(n => `<option value="${n}">${n}</option>`).join('');
+  return stored;
+}
+
+$('saveUserPreset').addEventListener('click', () => {
+  const name = $('presetName').value.trim();
+  if (!name) return alert('Name required');
+  const stored = loadUserPresetsList();
+  stored[name] = snapshotSettings();
+  localStorage.setItem('ascii.presets', JSON.stringify(stored));
+  loadUserPresetsList();
+  $('userPresets').value = name;
+  $('presetName').value = '';
+});
+
+$('loadUserPreset').addEventListener('click', () => {
+  const name = $('userPresets').value;
+  if (!name) return;
+  const stored = JSON.parse(localStorage.getItem('ascii.presets') || '{}');
+  if (stored[name]) applySettings(stored[name]);
+});
+
+$('deleteUserPreset').addEventListener('click', () => {
+  const name = $('userPresets').value;
+  if (!name) return;
+  if (!confirm(`Delete preset "${name}"?`)) return;
+  const stored = JSON.parse(localStorage.getItem('ascii.presets') || '{}');
+  delete stored[name];
+  localStorage.setItem('ascii.presets', JSON.stringify(stored));
+  loadUserPresetsList();
+});
+
+let persistTimer = null;
+document.addEventListener('input', () => {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try { localStorage.setItem('ascii.last', JSON.stringify(snapshotSettings())); } catch {}
+  }, 250);
+}, true);
+
+function encodeSettings(s) {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(s))));
+}
+function decodeSettings(str) {
+  try { return JSON.parse(decodeURIComponent(escape(atob(str)))); } catch { return null; }
+}
+
+$('shareUrl').addEventListener('click', async () => {
+  const hash = encodeSettings(snapshotSettings());
+  const url = `${location.origin}${location.pathname}#s=${hash}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    const b = $('shareUrl'); const orig = b.textContent;
+    b.textContent = 'Copied ✓';
+    setTimeout(() => b.textContent = orig, 1200);
+  } catch { prompt('Copy this URL:', url); }
+});
+
+$('resetAll').addEventListener('click', () => {
+  if (!confirm('Reset all settings to defaults?')) return;
+  if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+  localStorage.removeItem('ascii.last');
+  applyPreset('classic');
+});
+
+$('fullscreenBtn').addEventListener('click', () => {
+  const target = document.querySelector('main');
+  if (document.fullscreenElement) document.exitFullscreen();
+  else target.requestFullscreen?.();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input[type=text], input[type=number], textarea, select')) return;
+  switch (e.key) {
+    case 'f': case 'F': {
+      const target = document.querySelector('main');
+      if (document.fullscreenElement) document.exitFullscreen();
+      else target.requestFullscreen?.();
+      break;
+    }
+    case 's': case 'S':
+      if (!(e.metaKey || e.ctrlKey)) $('savePng').click();
+      break;
+    case 'g': case 'G':
+      $('animExport').click();
+      break;
+    case 'p': case 'P':
+    case ' ':
+      e.preventDefault();
+      $('animPreview').click();
+      break;
+    case '[': {
+      const v = Math.max(1, parseFloat($('cell').value) - 1);
+      setAnimParam('cell', v); render();
+      break;
+    }
+    case ']': {
+      const v = parseFloat($('cell').value) + 1;
+      setAnimParam('cell', v); render();
+      break;
+    }
+  }
+});
+
+const _render = render;
+let _renderScheduled = false;
+window.render = function() {
+  if (_renderScheduled) return;
+  _renderScheduled = true;
+  $('renderBusy').style.display = 'block';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try { _render(); }
+    finally {
+      _renderScheduled = false;
+      $('renderBusy').style.display = 'none';
+    }
+  }));
+};
+
+(function restoreLast() {
+  try {
+    const last = JSON.parse(localStorage.getItem('ascii.last') || 'null');
+    if (last) applySettings(last);
+  } catch {}
+  loadUserPresetsList();
+})();
+
+(function loadFromHash() {
+  if (location.hash.startsWith('#s=')) {
+    const s = decodeSettings(location.hash.slice(3));
+    if (s) applySettings(s);
+  }
+})();
+</script>
+</body>
+</html>
