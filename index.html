@@ -7,6 +7,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700;800&family=IBM+Plex+Mono:wght@400;700&family=Space+Mono:wght@400;700&family=Fira+Code:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=DM+Mono:wght@400;500&family=Courier+Prime:wght@400;700&display=swap">
 <style>
+  @font-face {
+    font-family: 'Google Sans Code';
+    src: url('fonts/GoogleSansCode-VF.ttf') format('truetype-variations');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #0a0a0a; color: #ddd; min-height: 100vh; font: 13px/1.4 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
   body { display: grid; grid-template-columns: 260px 1fr; gap: 1px; background: #222; min-height: 100vh; }
@@ -124,6 +131,7 @@
     <input type="text" id="customChars" placeholder=" .:-=+*#%@" style="margin-top: 6px; display:none;">
     <div class="row" style="margin-top:6px">
       <select id="font" style="flex:1">
+        <option value="'Google Sans Code', ui-monospace, monospace">Google Sans Code</option>
         <option value="'JetBrains Mono', ui-monospace, monospace" selected>JetBrains Mono</option>
         <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
         <option value="'Space Mono', monospace">Space Mono</option>
